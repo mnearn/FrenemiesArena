@@ -1,0 +1,229 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { Game, rankPoints, WEAPONS, ELEMENTS, TRAITS } from "../game.js";
+function arena() {
+  const g = new Game("ABC123");
+  for (let i = 0; i < 4; i++) g.add("Player " + i);
+  g.next = "ffa";
+  g.startSelected();
+  g.players.forEach((p) => {
+    p.protection = 0;
+    p.loadout.element = "earth";
+  });
+  return g;
+}
+test("raid shared ranks skip places and zero categories get 1", () => {
+  assert.deepEqual(rankPoints([100, 100, 40, 0]), [4, 4, 2, 1]);
+  assert.deepEqual(rankPoints([0, 0, 0, 0]), [1, 1, 1, 1]);
+  assert.deepEqual(rankPoints([2, 1, 1, 0]), [4, 3, 3, 1]);
+});
+test("all loadout combinations are accepted only during selection", () => {
+  const g = new Game("A"),
+    p = g.add("A");
+  for (const weapon of WEAPONS)
+    for (const element of ELEMENTS)
+      for (const trait of TRAITS)
+        assert.equal(g.loadout(p, { weapon, element, trait }), true);
+  assert.equal(
+    g.loadout(p, { weapon: "hacked", element: "fire", trait: "vampirism" }),
+    false,
+  );
+  g.next = "ffa";
+  g.startSelected();
+  assert.equal(
+    g.loadout(p, { weapon: "bow", element: "water", trait: "vampirism" }),
+    false,
+  );
+});
+test("shield absorbs damage; vampirism only heals actual direct HP damage", () => {
+  const g = arena(),
+    [a, b] = g.players;
+  a.hp = 50;
+  b.shield = 10;
+  g.damage(a, b, 20);
+  assert.equal(b.hp, 90);
+  assert.equal(a.hp, 50.7);
+  g.damage(a, b, 10, { dot: true });
+  assert.equal(a.hp, 50.7);
+});
+test("burn kills award base + elemental bonus; respawn retains Last Stand use", () => {
+  const g = arena(),
+    [a, b] = g.players;
+  b.hp = 2;
+  b.burn = 1;
+  b.burnTime = 3;
+  b.burnOwner = a.id;
+  g.tickBurn(b, 1);
+  assert.equal(b.dead, true);
+  assert.equal(a.score[0], 3);
+  b.lastUsed = true;
+  g.update(5.1);
+  assert.equal(b.dead, false);
+  assert.equal(b.lastUsed, true);
+  assert.equal(b.protection, 2);
+});
+test("Last Stand survives fatal Burn once and next round resets", () => {
+  const g = arena(),
+    [a, b] = g.players;
+  b.loadout.trait = "laststand";
+  b.hp = 2;
+  g.damage(a, b, 4, { dot: true });
+  assert.equal(b.hp, 1);
+  assert.equal(b.lastUsed, true);
+  g.damage(a, b, 100);
+  assert.equal(b.hp, 1);
+  b.protection = 0;
+  g.damage(a, b, 4, { dot: true });
+  assert.equal(b.dead, true);
+  g.reset(b);
+  assert.equal(b.lastUsed, false);
+});
+test("Earth shield cap, six-hit Overcharge, and Berserker threshold", () => {
+  const g = arena(),
+    [a, b] = g.players;
+  for (let i = 0; i < 15; i++) g.onHit(a, b);
+  assert.equal(a.shield, 10);
+  a.loadout.element = "electricity";
+  for (let i = 0; i < 5; i++) g.onHit(a, b);
+  assert.equal(a.overcharge, 5);
+  g.onHit(a, b);
+  assert.equal(a.overcharge, 0);
+  a.loadout.element = "earth";
+  a.loadout.trait = "berserker";
+  a.hp = 25;
+  b.hp = 100;
+  g.damage(a, b, 10);
+  assert.equal(b.hp, 90);
+  a.hp = 24;
+  g.damage(a, b, 10);
+  assert.equal(b.hp, 77.5);
+});
+test("FFA tied leaders alone enter sudden death then fixed teams enter 2v2", () => {
+  const g = arena();
+  g.players[0].score[0] = 3;
+  g.players[1].score[0] = 3;
+  g.time = 0;
+  g.update(0.01);
+  assert.equal(g.sudden, true);
+  assert.equal(g.players.filter((p) => !p.dead).length, 2);
+  const [a, b] = g.players;
+  b.protection = 0;
+  g.damage(a, b, 1000);
+  g.update(0.01);
+  assert.equal(g.phase, "select");
+  assert.equal(g.next, "duel");
+  assert.equal(a.score[0], 7);
+  assert.equal(g.players.filter((p) => p.team === 0).length, 2);
+});
+test("2v2 excludes shield from timeout HP, team first to three gets +3 each", () => {
+  const g = arena();
+  g.players.forEach((p, i) => (p.team = i % 2));
+  g.next = "duel";
+  g.startSelected();
+  g.players[0].hp = 90;
+  g.players[0].shield = 10;
+  g.players[2].hp = 90;
+  g.time = 0;
+  g.update(0.01);
+  assert.equal(g.wins[1], 1);
+  g.startSelected();
+  g.finishDuel(1);
+  g.startSelected();
+  g.finishDuel(1);
+  assert.equal(g.next, "raid");
+  assert.equal(g.players[1].score[1], 3);
+  assert.equal(g.players[3].score[1], 3);
+});
+test("double kill awards +2 only once and teammate cannot be attacked", () => {
+  const g = arena();
+  g.players.forEach((p, i) => (p.team = i % 2));
+  g.next = "duel";
+  g.startSelected();
+  g.players.forEach((p) => (p.protection = 0));
+  const a = g.players[0];
+  assert.equal(g.enemies(a).length, 2);
+  g.damage(a, g.players[1], 1000);
+  g.damage(a, g.players[3], 1000);
+  assert.equal(a.score[1], 2);
+});
+test("Azul transformation keeps half HP and boosts phase only once", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  g.boss.hp = 2000;
+  g.updateBoss(0.1);
+  assert.equal(g.boss.name, "Azul");
+  assert.equal(g.boss.hp, 2000);
+  assert.equal(g.boss.transform, 2);
+  g.update(2.1);
+  g.updateBoss(0.1);
+  assert.equal(g.boss.hp, 2000);
+});
+test("downing, successful revive, and damage interrupt", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  const [a, b] = g.players;
+  a.protection = b.protection = 0;
+  a.x = b.x = 200;
+  a.y = b.y = 600;
+  g.damage(g.boss, b, 1000);
+  assert.equal(b.down, true);
+  for (let i = 0; i < 65; i++) {
+    g.input(a, { interact: true });
+    g.update(0.05);
+  }
+  assert.equal(b.down, false);
+  assert.equal(b.hp, 30);
+  assert.equal(a.revives, 1);
+  assert.ok(a.reviveCD > 29);
+  g.damage(g.boss, a, 1);
+  assert.equal(a.reviveProgress, 0);
+});
+test("team wipe allows one retry, forces loadout change, and resets contribution", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  g.players.forEach((p) => {
+    p.down = true;
+    p.damage = 50;
+  });
+  g.update(0.1);
+  assert.equal(g.phase, "select");
+  assert.equal(g.attempt, 2);
+  const old = g.players[0].loadout.element;
+  g.startSelected();
+  assert.notEqual(g.players[0].loadout.element, old);
+  assert.equal(g.players[0].damage, 0);
+  g.players.forEach((p) => (p.down = true));
+  g.update(0.1);
+  assert.equal(g.phase, "results");
+  assert.equal(g.victory, false);
+});
+test("raid victory awards contribution plus bonus exactly once", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  g.players.forEach((p, i) => {
+    p.damage = 400 - i * 100;
+    p.aliveTime = 10;
+    p.revives = 0;
+  });
+  g.finishRaid(true);
+  assert.deepEqual(
+    g.players.map((p) => p.score[2]),
+    [12, 11, 10, 9],
+  );
+  g.finishRaid(true);
+  assert.equal(g.players[0].score[2], 12);
+});
+test("chain finishing damage does not double count elimination", () => {
+  const g = arena(),
+    [a, b] = g.players;
+  a.loadout.element = "electricity";
+  a.overcharge = 5;
+  b.hp = 8;
+  g.damage(a, b, 5);
+  assert.equal(a.eliminations, 1);
+  assert.equal(a.score[0], 3);
+});
