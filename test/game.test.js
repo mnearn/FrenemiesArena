@@ -227,3 +227,44 @@ test("chain finishing damage does not double count elimination", () => {
   assert.equal(a.eliminations, 1);
   assert.equal(a.score[0], 3);
 });
+
+
+test("FFA spectator flags do not exclude opponents from later 2v2 overtime", () => {
+  const g = arena();
+  g.players[1].contender = false;
+  g.players.forEach((p, i) => p.team = i % 2);
+  g.next = "duel";
+  g.startSelected();
+  g.sudden = true;
+  assert.equal(g.enemies(g.players[0]).length, 2);
+});
+
+test("Flame Burst applies two Burn stacks to the raid boss", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  const a = g.players[0];
+  a.loadout.element = "fire";
+  a.x = g.boss.x - 100; a.y = g.boss.y; a.aim = 0;
+  g.element(a);
+  assert.equal(g.boss.burn, 2);
+  assert.equal(g.boss.hp, g.boss.maxHP - 12);
+});
+
+test("dodged Flame Burst and boss hits do not apply Burn", (t) => {
+  const g = arena(), [a,b] = g.players;
+  a.loadout.element = "fire"; b.loadout.element = "air";
+  a.x = 300; a.y = 300; a.aim = 0; b.x = 350; b.y = 300;
+  t.mock.method(Math, "random", () => 0);
+  g.element(a);
+  assert.equal(b.hp,100); assert.equal(b.burn,0);
+  g.damage({id:"boss"}, b, 15, {burnStacks:2});
+  assert.equal(b.hp,100); assert.equal(b.burn,0);
+});
+
+test("round reset clears unfinished flurry and counter", () => {
+  const g = arena(), a = g.players[0];
+  a.flurry = 3; a.counter = 1; a.contender = false;
+  g.reset(a);
+  assert.equal(a.flurry,0); assert.equal(a.counter,0); assert.equal(a.contender,true);
+});
