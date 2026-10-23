@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#101c20" />
+    <title>Frenemies Arena · Four enter. One takes the crown.</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/" aria-label="Frenemies Arena home"
+        ><span class="mark">F<span>✦</span></span
+        ><span
+          >FRENEMIES<span class="brand-sub">ARENA / MULTIPLAYER</span></span
+        ></a
+      >
+      <div class="header-right">
+        <span id="connection" class="pill"><i></i> CONNECTING</span
+        ><button id="sound" class="quiet" aria-label="Toggle sound">
+          SOUND OFF</button
+        ><button id="help" class="quiet">HOW TO PLAY ↗</button>
+      </div>
+    </header>
+    <main id="landing">
+      <section class="hero">
+        <div class="eyebrow">
+          <span class="dot"></span> 4 PLAYERS · 3 STAGES · 1 CHAMPION
+        </div>
+        <h1>Friends today.<br /><em>Frenemies</em><br />by sundown.</h1>
+        <p class="intro">
+          Fight for yourself. Fight with a partner.<br />Then fight for
+          everyone. The crown is still yours to take.
+        </p>
+        <div class="entry">
+          <label for="name">YOUR ARENA NAME</label
+          ><input
+            id="name"
+            maxlength="18"
+            placeholder="Enter your name"
+            autocomplete="nickname"
+          /><button id="create" class="primary">
+            CREATE AN ARENA <span>↗</span>
+          </button>
+          <div class="join">
+            <input
+              id="code"
+              maxlength="6"
+              placeholder="ROOM CODE"
+              aria-label="Room code"
+            /><button id="join">JOIN →</button>
+          </div>
+          <p id="error" role="alert"></p>
+        </div>
+        <div class="hero-foot">
+          DESKTOP FIRST <span>WASD + MOUSE</span> <span>NO DOWNLOADS</span>
+        </div>
+      </section>
+      <section class="art-panel">
+        <canvas
+          id="cover"
+          width="720"
+          height="740"
+          aria-label="Pixel arena with four champions facing a fiery boss"
+        ></canvas>
+        <div class="art-label">
+          <span>THE ARENA IS WAITING</span><span>01 — 03</span>
+        </div>
+        <div class="art-caption">
+          <span class="mini">FINAL STAGE</span>
+          <h2>Rivals become allies.</h2>
+          <p>Survive Solara. Face Azul. Settle the score.</p>
+        </div>
+      </section>
+      <section class="stage-cards">
+        <article>
+          <span>01 / EVERYONE FOR THEMSELVES</span>
+          <h3>Free-for-all <small>06:00</small></h3>
+          <p>Every elimination matters. Take the lead before time runs out.</p>
+        </article>
+        <article>
+          <span>02 / PICK YOUR SIDE</span>
+          <h3>Two versus two <small>BO5</small></h3>
+          <p>Random allies. Shared victories. First team to three takes it.</p>
+        </article>
+        <article>
+          <span>03 / THE COMMON ENEMY</span>
+          <h3>The final raid <small>07:00</small></h3>
+          <p>
+            Four against the flame. Damage, survival, and revives earn points.
+          </p>
+        </article>
+      </section>
+    </main>
+    <main id="game" hidden>
+      <div class="match-top">
+        <div>
+          <span class="eyebrow" id="phase">THE LOBBY</span>
+          <h2 id="stage-title">Gather your rivals.</h2>
+        </div>
+        <div class="match-meta">
+          <button id="copy" class="quiet">ROOM <b id="room"></b> ⧉</button
+          ><strong id="timer">—</strong>
+        </div>
+      </div>
+      <div class="play-layout">
+        <section class="arena-wrap">
+          <canvas
+            id="arena"
+            width="1200"
+            height="760"
+            tabindex="0"
+            aria-label="Game arena. Use WASD to move, mouse to aim, left mouse to attack, Q for weapon special, E for element ability, R to revive, Shift to guard, and Space to switch stance."
+          ></canvas>
+          <div id="banner"></div>
+          <div id="bossbar" hidden>
+            <div><b id="bossname">SOLARA</b><span id="bosshp"></span></div>
+            <progress id="bossprogress" max="1" value="1"></progress>
+          </div>
+          <div id="loadout-panel">
+            <div class="eyebrow" id="selection-label">BUILD YOUR LOADOUT</div>
+            <h2 id="selection-title">Make it personal.</h2>
+            <p id="selection-note">
+              Choose one weapon, element, and trait. Duplicates are welcome.
+            </p>
+            <div class="select-grid">
+              <label>WEAPON<select id="weapon"></select></label
+              ><label>ELEMENT<select id="element"></select></label
+              ><label>TRAIT<select id="trait"></select></label>
+            </div>
+            <div class="loadout-info" id="loadout-info"></div>
+            <button id="ready" class="primary">READY UP →</button
+            ><small id="ready-note">Waiting for four players to join.</small>
+          </div>
+          <div id="result-panel" hidden>
+            <span class="eyebrow">THE FINAL RECKONING</span>
+            <h2 id="champion"></h2>
+            <p id="result-message"></p>
+            <div id="results-table"></div>
+            <button id="again" class="primary">BACK TO LOBBY →</button>
+          </div>
+        </section>
+        <aside>
+          <div class="roster-head">
+            <span>THE CONTENDERS</span><span id="count">0/4</span>
+          </div>
+          <div id="roster"></div>
+          <div class="round-info" id="round-info"></div>
+          <div class="feed-head">ARENA FEED</div>
+          <div id="feed" aria-live="polite"></div>
+        </aside>
+      </div>
+      <div class="actionbar">
+        <div id="your-health">
+          <span>YOUR VITALS</span><b>100 / 100</b
+          ><progress max="100" value="100"></progress>
+        </div>
+        <div class="ability" id="attack-label">
+          <kbd>LMB</kbd><span>Attack</span><b></b>
+        </div>
+        <div class="ability" id="special-label">
+          <kbd>Q</kbd><span>Weapon special</span><b></b>
+        </div>
+        <div class="ability" id="element-label">
+          <kbd>E</kbd><span>Element ability</span><b></b>
+        </div>
+        <div class="ability"><kbd>R</kbd><span>Hold to revive</span></div>
+        <div class="controls-hint">
+          WASD MOVE · MOUSE AIM<br />SHIFT GUARD · SPACE STANCE
+        </div>
+      </div>
+      <div id="touch-controls">
+        <button data-key="w">↑</button><button data-key="a">←</button
+        ><button data-key="s">↓</button><button data-key="d">→</button
+        ><button data-action="attack">HIT</button><button data-key="q">Q</button
+        ><button data-key="e">E</button><button data-key="r">REVIVE</button>
+      </div>
+    </main>
+    <dialog id="help-dialog">
+      <button id="close-help" class="quiet">CLOSE ×</button>
+      <div class="eyebrow">FIELD GUIDE</div>
+      <h2>One match. Three ways to win.</h2>
+      <p>
+        Four players join the same room from separate devices. Everyone readies
+        up, then selects a loadout. All points carry into the final leaderboard.
+      </p>
+      <dl>
+        <dt>Move & aim</dt>
+        <dd>WASD or arrow keys. Aim with your mouse.</dd>
+        <dt>Attack</dt>
+        <dd>
+          Hold left mouse. With Bow, hold to charge and release to fire. Release
+          in the gold 85–95% window for Perfect Draw.
+        </dd>
+        <dt>Abilities</dt>
+        <dd>
+          Q: weapon special. E: element ability. Space: Sword & Shield stance.
+          Hold Shift to guard in defensive stance.
+        </dd>
+        <dt>Revive</dt>
+        <dd>
+          In the raid, stand near a downed ally and hold R for 3 seconds. Taking
+          damage interrupts. Your revive cooldown is 30 seconds.
+        </dd>
+        <dt>Scoring</dt>
+        <dd>
+          FFA: +1 elimination; +2 extra for elemental finishing damage; +3 stage
+          win. 2v2: +3 each for stage victory; +2 for eliminating both opponents
+          in a round. Raid: damage, revives and time alive each award placement
+          points; victory gives everyone +3.
+        </dd>
+        <dt>Sudden death & ties</dt>
+        <dd>
+          FFA tied leaders fight without respawns in a shrinking arena. 2v2
+          timeout uses remaining HP, then overtime, then round damage. Raid ties
+          use shared ranks (4/4/2/1); an all-zero category awards 1 each.
+        </dd>
+        <dt>Retry</dt>
+        <dd>
+          One retry after a team wipe before the raid timer expires. Change at
+          least one loadout choice; an unchanged loadout receives the next
+          element automatically.
+        </dd>
+      </dl>
+      <p class="muted">
+        Prototype balance: 100 player HP · 4,200 boss HP · single arena. Sound
+        is synthesized locally. Mobile controls are experimental; keyboard and
+        mouse recommended.
+      </p>
+    </dialog>
+    <footer>
+      <span>FRENEMIES ARENA</span
+      ><span>KEEP YOUR FRIENDS CLOSE. YOUR SCORE CLOSER.</span
+      ><span>BUILD 0.1</span>
+    </footer>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="client.js"></script>
+  </body>
+</html>
