@@ -37,7 +37,7 @@ can delay first connection. Deploys, process restarts and shutdowns end active
 matches. No account registration, payment integration or persistent player data
 is required by this game.
 
-A public deployment has **not** been created yet. Render connection is needed
+Live game: https://frenemies-arena.onrender.com/ . Source: https://github.com/mnearn/FrenemiesArena . Four browser clients joined and started a live match on October 23, 2026; four physical-device testing remains outstanding.
 before this assistant can provide a live playable URL. The internal preview URL
 is not a public deployment and is not a submission link.
 

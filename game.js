@@ -116,6 +116,10 @@ export class Game {
       reviveTarget: null,
       stance: "offense",
       hitCount: 0,
+      contender: true,
+      counter: 0,
+      flurry: 0,
+      flurryCD: 0,
       burn: 0,
       burnTime: 0,
       burnTick: 0,
@@ -261,7 +265,7 @@ export class Game {
         t !== p &&
         !t.dead &&
         !t.down &&
-        (!this.sudden || t.contender !== false) &&
+        (this.phase !== "ffa" || !this.sudden || t.contender !== false) &&
         (this.phase !== "duel" || t.team !== p.team),
     );
   }
@@ -269,7 +273,7 @@ export class Game {
     source,
     target,
     amount,
-    { elemental = false, dot = false, proc = false } = {},
+    { elemental = false, dot = false, proc = false, burnStacks = 0 } = {},
   ) {
     if (
       target.hp <= 0 ||
@@ -354,6 +358,11 @@ export class Game {
         this.onHit(source, target);
       }
     }
+    if (burnStacks > 0 && !target.dead && !target.down) {
+      target.burn = Math.min(3, (target.burn || 0) + burnStacks);
+      target.burnTime = 3;
+      target.burnOwner = source?.id;
+    }
     if (target.dead || target.down) return actual;
     if (target.hp <= 0) {
       if (target.id === "boss") {
@@ -426,7 +435,7 @@ export class Game {
     p,
     damage,
     range,
-    { elemental = false, tip = false, knock = 0, proc = false } = {},
+    { elemental = false, tip = false, knock = 0, proc = false, burnStacks = 0 } = {},
   ) {
     let hit = false;
     for (const t of this.enemies(p)) {
@@ -444,7 +453,7 @@ export class Game {
           Math.random() < 0.02
         )
           a = t.id === "boss" ? a + 50 : t.hp + (t.shield || 0);
-        this.damage(p, t, a, { elemental, proc });
+        this.damage(p, t, a, { elemental, proc, burnStacks });
         if ((tipper || knock) && this.now - (t.knockAt ?? -10) > 1) {
           t.knockAt = this.now;
           if (t.id === "boss") t.stagger = 0.45;
@@ -615,19 +624,9 @@ export class Game {
       this.melee(p, e === "fire" ? 12 : 10, 155, {
         elemental: true,
         knock: e === "water" ? 40 : 0,
+        burnStacks: e === "fire" ? 1 : 0,
       });
-      if (e === "fire")
-        for (const t of this.enemies(p))
-          if (
-            dist(p, t) < 169 &&
-            Math.abs(angleDiff(Math.atan2(t.y - p.y, t.x - p.x), p.aim)) <
-              1.05 &&
-            t.protection <= 0
-          ) {
-            t.burn = Math.min(3, (t.burn || 0) + 1);
-            t.burnTime = 3;
-            t.burnOwner = p.id;
-          }
+
     }
   }
   update(dt) {
@@ -1003,13 +1002,7 @@ export class Game {
             hit = Math.hypot(p.x - z.x - u * dx, p.y - z.y - u * dy) < z.r;
           }
           if (hit) {
-            const protectedHit = p.protection > 0;
-            this.damage(b, p, z.damage * (b.azul ? 1.2 : 1));
-            if (!protectedHit && !p.dead && !p.down) {
-              p.burn = Math.min(3, p.burn + 2);
-              p.burnTime = 3;
-              p.burnOwner = "boss";
-            }
+            this.damage(b, p, z.damage * (b.azul ? 1.2 : 1), { burnStacks: 2 });
           }
         }
         if (z.kind === "charge") {
