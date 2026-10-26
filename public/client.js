@@ -482,151 +482,163 @@ function rect(c, x, y, w, h, color) {
   c.fillStyle = color;
   c.fillRect(Math.round(x), Math.round(y), w, h);
 }
+// Deterministic, cached scenery: decoration never changes collision geometry.
+const terrainCache = new Map();
 function background(c, w = 1200, h = 760) {
-  rect(c, 0, 0, w, h, "#19332f");
-  for (let y = 0; y < h; y += 40)
-    for (let x = 0; x < w; x += 40) {
-      const n = (x * 17 + y * 31) % 97;
-      rect(c, x, y, 39, 39, n % 3 === 0 ? "#1d3832" : "#203b35");
-      if (n < 45) rect(c, x + 10, y + 16, 3, 5, "#304b3b");
+  const key = `${w}:${h}`;
+  if (!terrainCache.has(key)) {
+    const tile = document.createElement('canvas');
+    tile.width = w; tile.height = h;
+    const t = tile.getContext('2d');
+    let seed = 1729;
+    const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+    rect(t, 0, 0, w, h, '#497842');
+    for (let i = 0; i < w * h / 100; i++) {
+      const x = Math.floor(rand() * w / 4) * 4, y = Math.floor(rand() * h / 4) * 4;
+      rect(t, x, y, 4 + Math.floor(rand() * 3) * 4, 4,
+        ['#588b46', '#63994c', '#739e50', '#3e6c3d'][i % 4]);
     }
-  rect(c, 34, 34, w - 68, h - 68, "#29453c");
-  for (let y = 42; y < h - 42; y += 38)
-    for (let x = 42; x < w - 42; x += 42) {
-      rect(c, x, y, 40, 36, (x + y) % 5 ? "#2c473d" : "#304b41");
-      rect(c, x + 2, y + 2, 36, 2, "#365045");
+    // The playable area remains flat and unobstructed, with a narrow earthen rim.
+    rect(t, 24, 24, w - 48, h - 48, '#493e32');
+    rect(t, 28, 28, w - 56, h - 56, '#70513b');
+    rect(t, 36, 40, w - 72, h - 76, '#916c4b');
+    rect(t, 40, 48, w - 80, h - 88, '#ad8c60');
+    for (let i = 0; i < w * h / 480; i++) {
+      const x = 44 + Math.floor(rand() * (w - 92) / 4) * 4;
+      const y = 52 + Math.floor(rand() * (h - 100) / 4) * 4;
+      const col = ['#a3845b', '#b49468', '#b8986c', '#a88960'][i % 4];
+      rect(t, x, y, 8, 4, col); rect(t, x - 4, y + 4, 16, 4, col);
+      rect(t, x, y + 8, 8, 4, col);
+      if (i % 9 === 0) rect(t, x, y, 4, 3, '#c3a477');
     }
-  rect(c, w / 2 - 65, 45, 130, h - 90, "#3b5145");
-  rect(c, 45, h / 2 - 60, w - 90, 120, "#3b5145");
-  c.strokeStyle = "#6b7654";
-  c.lineWidth = 3;
-  c.strokeRect(55, 55, w - 110, h - 110);
-  c.strokeStyle = "#68734b55";
-  c.beginPath();
-  c.arc(w / 2, h / 2, 180, 0, Math.PI * 2);
-  c.stroke();
-  for (const [x, y] of [
-    [35, 35],
-    [w - 55, 35],
-    [35, h - 90],
-    [w - 55, h - 90],
-  ]) {
-    rect(c, x - 12, y + 16, 44, 60, "#112722");
-    rect(c, x - 10, y, 40, 58, "#54624c");
-    rect(c, x - 14, y - 4, 48, 15, "#788162");
-    rect(c, x - 5, y + 12, 8, 34, "#657257");
+    for (let x = 28; x < w - 28; x += 12) {
+      rect(t, x, 28, 8, 4, '#9b7852');
+      rect(t, x + 4, 36, 4, 8, '#5e4935');
+      rect(t, x, h - 36, 8, 4, '#c09c67');
+      rect(t, x, 20 + (x % 3) * 2, 8, 8, '#739e50');
+      rect(t, x + 4, h - 28, 8, 8, '#63994c');
+    }
+    for (let y = 32; y < h - 32; y += 12) {
+      rect(t, 28, y, 4, 8, '#9b7852');
+      rect(t, w - 36, y, 4, 8, '#604b36');
+      rect(t, 20, y, 8, 6, '#63994c');
+      rect(t, w - 28, y + 4, 8, 8, '#739e50');
+    }
+    for (let i = 0; i < 34; i++) {
+      const x = 8 + Math.floor(rand() * (w - 16) / 4) * 4;
+      const y = i % 2 ? 8 : h - 16;
+      rect(t, x, y, 2, 8, '#284e38');
+      rect(t, x - 3, y, 8, 3, i % 3 ? '#b6c96a' : '#f5dc89');
+      if (i % 3 === 0) rect(t, x, y - 2, 2, 7, '#fff0bd');
+    }
+    terrainCache.set(key, tile);
   }
-  for (let i = 0; i < 22; i++) {
-    const x = (i * 173 + 50) % w,
-      y = i % 2 === 0 ? 8 : h - 20;
-    rect(c, x, y, 16, 16, "#4c6447");
-    rect(c, x + 4, y - 5, 8, 10, "#718754");
-  }
+  c.imageSmoothingEnabled = false;
+  c.drawImage(terrainCache.get(key), 0, 0);
 }
+function pixelSprite(c, rows, palette, x, y, size = 2) {
+  for (let j = 0; j < rows.length; j++)
+    for (let i = 0; i < rows[j].length; i++) {
+      const color = palette[rows[j][i]];
+      if (color) rect(c, x + i * size, y + j * size, size, size, color);
+    }
+}
+const heroSprite = [
+ '.......oooo.......', '.....ooaaaaoo.....', '....oahhhhaaao....',
+ '...oahhaaaaaaao...', '...ohaaaoooooao...', '...oaaooksskoo....',
+ '...oaaokseskso....', '....oaoksskoo.....', '....oooogggooo....',
+ '..ooaaaoggoaaaoo..', '.oahhaaoggoaahhao.', '.oahaaaoggoaaahao.',
+ '.oaaoaaohhoaaaoao.', '.ossoaaoggoaaosso.', '..oooaaoooaaooo..',
+ '....oaaggggaao....', '....ooggbbggoo....', '....oaaaaoaaao....',
+ '....oaahaohaao....', '....oaaaooaaao....', '....odddoodddo....',
+ '...oddddooddddo...', '...ooooo.oooooo...',
+];
 function playerArt(c, p, color, scale = 1) {
-  c.save();
-  c.translate(Math.round(p.x), Math.round(p.y));
-  c.scale(scale, scale);
-  c.fillStyle = "#071a2166";
-  c.beginPath();
-  c.ellipse(0, 19, 23, 9, 0, 0, 7);
-  c.fill();
+  c.save(); c.translate(Math.round(p.x), Math.round(p.y)); c.scale(scale, scale);
+  c.fillStyle = '#342e3055'; c.beginPath(); c.ellipse(0, 17, 21, 7, 0, 0, 7); c.fill();
   if (p.dead) {
-    rect(c, -15, 5, 30, 9, "#77877a");
-    c.restore();
-    return;
+    pixelSprite(c, ['..oooo..', '.osssso.', 'osssssso', '.osssso.', '..oooo..'],
+      {o:'#4a4842',s:'#9b9580'}, -12, 2, 3);
+    c.restore(); return;
   }
-  const wob = p.down ? 0 : Math.sin(performance.now() / 140 + p.x) * 2;
   if (p.down) c.rotate(-Math.PI / 2);
-  rect(c, -13, 5, 10, 18, "#14272b");
-  rect(c, 4, 5, 10, 18, "#14272b");
-  rect(c, -14, -14 + wob, 28, 29, color);
-  rect(c, -18, -10 + wob, 8, 21, color);
-  rect(c, 10, -10 + wob, 8, 21, color);
-  rect(c, -12, -31 + wob, 24, 21, "#d6b58b");
-  rect(c, -14, -33 + wob, 28, 8, "#273238");
-  rect(c, -14, -27 + wob, 7, 12, "#273238");
-  rect(c, 0, -22 + wob, 4, 4, "#18272b");
-  rect(c, 9, -22 + wob, 4, 4, "#18272b");
-  rect(c, -14, 0 + wob, 28, 6, "#384b3e");
-  rect(c, -4, 0 + wob, 7, 6, "#e6d69b");
-  c.save();
-  c.rotate(p.aim || 0);
-  const w = p.loadout?.weapon || "sword";
-  if (w === "bow") {
-    c.strokeStyle = "#e9c080";
-    c.lineWidth = 4;
-    c.beginPath();
-    c.arc(18, 0, 20, -1.4, 1.4);
-    c.stroke();
-    c.strokeStyle = "#dedbb7";
-    c.lineWidth = 1;
-    c.beginPath();
-    c.moveTo(21, -20);
-    c.lineTo(21, 20);
-    c.stroke();
-  } else if (w === "staff") {
-    rect(c, 12, -3, 43, 6, "#b39a6d");
-    rect(c, 48, -8, 12, 16, ec[p.loadout.element]);
-  } else if (w === "spear") {
-    rect(c, 12, -3, 62, 6, "#a18b5a");
-    rect(c, 68, -6, 18, 12, "#c7d7cd");
-  } else if (w === "scythe") {
-    rect(c, 12, -3, 50, 6, "#a18b5a");
-    rect(c, 53, -23, 8, 26, "#d1daca");
-    rect(c, 35, -26, 24, 7, "#d1daca");
+  const stride = p.moving && !p.down ? Math.round(Math.sin(performance.now() / 95) * 2) : 0;
+  const palette = {o:'#202b30', a:color, h:'#e3e1b4', g:'#b38d48', b:'#f3d578',
+    k:'#59443c', s:'#dba97b', e:'#fff0c4', d:'#3b4243'};
+  pixelSprite(c, heroSprite, palette, -18, -29 + stride);
+  const w = p.loadout?.weapon || 'sword';
+  // Distinct silhouettes and equipment for all six weapon classes.
+  if (w === 'daggers' || w === 'staff' || w === 'bow') {
+    pixelSprite(c, ['...ooooooo...', '..oaaaaaaao..', '.oahhaaaaaao.', 'oahaaaaooooao', 'oaaaooksskkoo',
+      'oaaookseeskko', '.oaookssskko.', '..ooooggooo..'], palette, -13, -33 + stride, 2);
   } else {
-    rect(c, 14, -4, w === "daggers" ? 25 : 40, 8, "#dae3cc");
-    rect(c, 17, -9, 6, 18, "#a8b281");
-    if (w === "sword") {
-      rect(c, -23, -13, 11, 26, "#879e7f");
-      rect(c, -25, -6, 15, 12, "#bbca99");
+    rect(c, -12, -27 + stride, 24, 4, '#d9d9b5');
+    rect(c, -3, -30 + stride, 5, 11, '#b38d48');
+    rect(c, -10, -19 + stride, 21, 3, '#3c4342');
+  }
+  c.save(); c.rotate(p.aim || 0);
+  const metal = '#dfe8db', edge = '#6e929b', gold = '#d1a654';
+  if (w === 'bow') {
+    pixelSprite(c, ['.gg.....','..gg....','...gg...','....gg..','.....g..','.....g..','....gg..','...gg...','..gg....','.gg.....'],
+      {g:gold}, 17, -20, 4);
+    rect(c, 22, -16, 1, 33, '#f5e1ab'); rect(c, 18, -1, 29, 2, metal);
+    rect(c, 43, -3, 5, 6, edge);
+  } else if (w === 'staff') {
+    rect(c, 12, -3, 41, 6, '#493d36'); rect(c, 12, -2, 42, 2, '#b69561');
+    pixelSprite(c, ['..gg..','.geeg.','geeeeg','.geeg.','..gg..'], {g:gold,e:ec[p.loadout.element] || '#b9d6ee'}, 47,-10,4);
+    rect(c, 55, -5, 4, 4, '#fff2d9');
+  } else if (w === 'spear' || w === 'scythe') {
+    rect(c, 10, -3, 57, 6, '#413d35'); rect(c, 10, -2, 57, 2, '#b99560');
+    if (w === 'spear') {
+      pixelSprite(c, ['ss....','hsss..','hhhhss','hsss..','ss....'],{s:edge,h:metal},64,-7,3);
+      rect(c, 59, -5, 5, 10, gold);
+    } else {
+      pixelSprite(c, ['...ssssss','..shhhhhh','.shhsssss','shhs.....','shs......','ss.......'],
+        {s:edge,h:metal}, 35,-27,4);
+    }
+  } else {
+    const blade = w === 'daggers' ? 24 : 38;
+    rect(c, 12, -3, blade, 7, '#27373d'); rect(c, 20, -2, blade - 6, 4, edge);
+    rect(c, 20, -2, blade - 9, 2, metal); rect(c, 17, -8, 4, 17, gold);
+    if (w === 'daggers') {
+      rect(c, -16, -19, 22, 5, edge); rect(c, -15, -19, 20, 2, metal); rect(c, -17, -22, 4, 11, gold);
+    } else {
+      pixelSprite(c, ['.gggggg.', 'gaaaaaag','gahhhaag','gaagaaag','gggggggg','.aagaag.','..agaa..','...gg...'],
+        {g:gold,a:color,h:'#e4e6bf'},-31,-16,4);
     }
   }
-  c.restore();
-  c.restore();
+  c.restore(); c.restore();
 }
 function bossArt(c, b) {
-  c.save();
-  c.translate(b.x, b.y);
-  const blue = b.azul,
-    col = blue ? "#5ab5f3" : "#ef9851",
-    light = blue ? "#b0e8ff" : "#ffe0a1";
-  c.fillStyle = "#08181b88";
-  c.beginPath();
-  c.ellipse(0, 35, 63, 20, 0, 0, 7);
-  c.fill();
-  for (let i = 0; i < 8; i++) {
-    const a = (i * Math.PI) / 4,
-      t = performance.now() / 200 + i;
-    rect(
-      c,
-      Math.cos(a) * 42 - 8,
-      Math.sin(a) * 42 - 12 - Math.sin(t) * 6,
-      16,
-      27,
-      col,
-    );
-    rect(
-      c,
-      Math.cos(a) * 42 - 4,
-      Math.sin(a) * 42 - 8 - Math.sin(t) * 6,
-      8,
-      12,
-      light,
-    );
+  c.save(); c.translate(Math.round(b.x), Math.round(b.y));
+  const col = b.azul ? '#359be7' : '#ef6a27', hot = b.azul ? '#91e7ff' : '#ffcc58';
+  c.fillStyle = '#47382d77'; c.beginPath(); c.ellipse(0, 39, 62, 17, 0, 0, 7); c.fill();
+  const frame = Math.floor(performance.now()/130);
+  for (let i=0; i<9; i++) {
+    const x = (i - 4) * 10, rise = (i * 13 + frame * 7) % 24;
+    pixelSprite(c, ['..f..','..ff.','.fhf.','ffhhf','fhhhf','.fff.'],
+      {f:col,h:hot}, x - 10, -53 - rise, 4);
   }
-  rect(c, -32, -31, 64, 65, "#293337");
-  rect(c, -46, -14, 20, 47, "#344345");
-  rect(c, 26, -14, 20, 47, "#344345");
-  rect(c, -28, 25, 20, 22, "#263237");
-  rect(c, 9, 25, 20, 22, "#263237");
-  rect(c, -22, -42, 44, 37, "#3f4644");
-  rect(c, -17, -28, 12, 6, light);
-  rect(c, 6, -28, 12, 6, light);
-  rect(c, -10, -11, 20, 7, col);
-  rect(c, -5, 1, 10, 21, col);
-  rect(c, -21, 8, 42, 6, col);
+  pixelSprite(c, [
+    '.........oooo.........','.......oorrroo.......','......orrrhrrro......',
+    '.....orrrrhhrrro.....','..oo.orrrrhhrrro.oo..','.orrrorrohhhorrorrro.',
+    'orrrhrrohhhhhorrhrro','orrhhrrohhhhorrrhhro','orhhrrorrrrrrrorhhro',
+    '.orrroorrhhrroorrro.','..ooooorhhhroooooo..','..orrrorrhrrorrrro..',
+    '.orrrrorrhrorrrrro..','orrrrrohhhhhorrrrro.','orrrrohhrrrhhorrro..',
+    'orrrroorrhrroorrro..','.orrr..orhro..rrro..','..ooo..ohhho..ooo...',
+    '.......ohhho........','......ohhhhho.......','.....ohhhhhho.......',
+    '....ohhhhhhhho......','.....ooooooo........'
+  ], {o:'#302e31',r:'#514846',h:col}, -42,-39,4);
+  // Faceted obsidian plates, bright eyes and molten seams.
+  pixelSprite(c, ['...oooooo...', '..orrhrrro..', '.orrrhrrrro.', 'orrrrhhrrrro',
+    'orhrrhrrhrro', '.orhhhhhroo.', '..orhhhroo..', '...orrroo...'],
+    {o:'#252a30',r:'#60514b',h:hot},-24,-49,4);
+  rect(c,-17,-29,12,4,hot); rect(c,7,-29,12,4,hot);
+  rect(c,-26,-2,9,5,'#837063'); rect(c,18,-2,9,5,'#837063');
+  for(let i=0;i<5;i++) {
+    const x = ((i*37+frame*3)%110)-55, y = 20-((i*17+frame*4)%90);
+    rect(c,x,y,3,5,hot);
+  }
   c.restore();
 }
 function draw() {
@@ -637,8 +649,8 @@ function draw() {
   }
   background(ctx);
   for (const z of state.zones) {
-    ctx.strokeStyle = state.boss?.azul ? "#68bfff" : "#ff9a5c";
-    ctx.fillStyle = state.boss?.azul ? "#68bfff33" : "#ff9a5c33";
+    ctx.strokeStyle = state.boss?.azul ? "#124d92" : "#9c2c1c";
+    ctx.fillStyle = state.boss?.azul ? "#238eff55" : "#f1492255";
     ctx.lineWidth = 3;
     if (z.kind === "charge") {
       ctx.lineWidth = z.r * 2;
@@ -685,7 +697,7 @@ function draw() {
     pos.x += (p.x - pos.x) * 0.3;
     pos.y += (p.y - pos.y) * 0.3;
     positions[p.id] = pos;
-    const pp = { ...p, ...pos };
+    const pp = { ...p, ...pos, moving: Math.hypot(pos.x - p.x, pos.y - p.y) > 1 };
     ctx.globalAlpha = p.dead ? 0.4 : 1;
     playerArt(ctx, pp, colors[i]);
     ctx.globalAlpha = 1;
@@ -706,6 +718,9 @@ function draw() {
     ctx.textAlign = "center";
     ctx.font = "bold 12px monospace";
     ctx.fillStyle = p.id === id ? "#f1f4d1" : colors[i];
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#352e29";
+    ctx.strokeText(p.name, pos.x, pos.y - 55);
     ctx.fillText(p.name, pos.x, pos.y - 55);
     rect(ctx, pos.x - 25, pos.y - 48, 50, 5, "#142724");
     rect(

@@ -822,3 +822,15 @@ dd {
     font-size: 26px;
   }
 }
+
+/* Earth-and-ember art direction, shared by the lobby and live arena. */
+:root { --bg: #171e20; --panel: #242c2c; --line: #454d43; --cream: #f6e9c9; --lime: #c7df8e; --orange: #ffad5b; }
+.art-panel, .arena-wrap { border: 3px solid #82704d; box-shadow: 0 0 0 1px #252e29, inset 0 0 0 2px #d0ab69; }
+.art-label { color: #fff1cd; text-shadow: 1px 2px #28382b; }
+.art-caption { background: linear-gradient(transparent, #182622 85%); }
+#bossbar { background: #20242bef; padding: 10px 14px; border: 2px solid #c29453; box-shadow: 0 3px 0 #372d28; }
+#bossbar progress { height: 9px; }
+#bossbar progress::-webkit-progress-value { background: linear-gradient(#ffcf73, #f47735); }
+#bossbar progress::-moz-progress-bar { background: #f47735; }
+#bossname { letter-spacing: 2px; color: #ffe5ac; }
+#loadout-panel, #result-panel { border: 2px solid #a38e5f; }
