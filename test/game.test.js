@@ -324,3 +324,44 @@ test('ranged attacks broadcast shooter animation metadata without changing proje
   assert.equal(g.projectiles[0].damage,30);
   assert.equal(g.snapshot().weaponProfiles.spear.range,125);
 });
+
+
+test("raid bleedout stops movement immediately", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  const p = g.players[0];
+  p.down = true;
+  p.bleed = 0.01;
+  p.input = { x: 1, y: 0 };
+  p.lastInput = g.now;
+  const x = p.x;
+  g.update(0.05);
+  assert.equal(p.dead, true);
+  assert.equal(p.x, x);
+  assert.deepEqual(p.input, {});
+});
+
+test("raid victory halts subsequent combat simulation", () => {
+  const g = arena();
+  g.next = "raid";
+  g.startSelected();
+  const [a, b] = g.players;
+  a.protection = b.protection = 0;
+  g.boss.azul = true;
+  g.boss.hp = 1;
+  g.boss.x = 400;
+  g.boss.y = 300;
+  a.x = 350;
+  a.y = 300;
+  b.x = 450;
+  b.y = 300;
+  b.hp = 50;
+  g.projectiles = [
+    { id: "finish", owner: a.id, x: 380, y: 300, vx: 650, vy: 0, damage: 10, elemental: false, pierce: 0, life: 1, hit: [], kind: "arrow" },
+    { id: "late", owner: b.id, x: 430, y: 300, vx: -650, vy: 0, damage: 50, elemental: false, pierce: 0, life: 1, hit: [], kind: "arrow" },
+  ];
+  g.update(0.05);
+  assert.equal(g.phase, "results");
+  assert.equal(b.hp, 50);
+});
