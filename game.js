@@ -17,10 +17,10 @@ export const CONFIG = {
   bossHP: 4200,
 };
 const W = {
-  sword: { damage: 12, rate: 1.5, range: 88 },
-  daggers: { damage: 7, rate: 2.2, range: 65 },
-  spear: { damage: 11, rate: 1.4, range: 145 },
-  scythe: { damage: 16, rate: 1, range: 110 },
+  sword: { damage: 12, rate: 1.5, range: 88, halfAngle: 1.05 },
+  daggers: { damage: 7, rate: 2.2, range: 65, halfAngle: 0.8 },
+  spear: { damage: 11, rate: 1.4, range: 125, halfWidth: 10 },
+  scythe: { damage: 16, rate: 1, range: 110, halfAngle: 1.3 },
   bow: { damage: 10, rate: 1.2, range: 700 },
   staff: { damage: 9, rate: 1.5, range: 600 },
 };
@@ -335,6 +335,7 @@ export class Game {
     target.lastHitAt = this.now;
     target.reviveProgress = 0;
     this.event("hit", {
+      target: target.id,
       x: target.x,
       y: target.y,
       amount: Math.round(actual + absorbed),
@@ -438,23 +439,38 @@ export class Game {
     { elemental = false, tip = false, knock = 0, proc = false, burnStacks = 0 } = {},
   ) {
     let hit = false;
+    const weapon = p.loadout.weapon;
+    const thrust = tip && !elemental;
+    const halfAngle = elemental ? 1.05 : (W[weapon].halfAngle || 1.05);
+    const halfWidth = W.spear.halfWidth;
     for (const t of this.enemies(p)) {
-      const d = dist(p, t);
-      if (
-        d < range + (t.id === "boss" ? 32 : 14) &&
-        Math.abs(angleDiff(Math.atan2(t.y - p.y, t.x - p.x), p.aim)) < 1.05
-      ) {
+      const d = dist(p, t), radius = t.id === "boss" ? 32 : 14;
+      const dx = t.x - p.x, dy = t.y - p.y;
+      const along = dx * Math.cos(p.aim) + dy * Math.sin(p.aim);
+      const across = Math.abs(-dx * Math.sin(p.aim) + dy * Math.cos(p.aim));
+      // A thrust is a narrow capsule, not a long, wide sword sweep.
+      const inThrust = along >= 0 && Math.hypot(
+        along - clamp(along, 0, range), Math.max(0, across - halfWidth)
+      ) < radius;
+      const inArc = d < range + radius &&
+        Math.abs(angleDiff(Math.atan2(dy, dx), p.aim)) < halfAngle;
+      if (thrust ? inThrust : inArc) {
         hit = true;
-        const tipper = tip && d > range * 0.75;
-        let a = damage + (tipper ? (damage === 20 ? 6 : 6) : 0);
+        const tipper = thrust && along > range * 0.75;
+        let a = damage + (tipper ? 6 : 0);
         if (
           p.loadout.weapon === "scythe" &&
           t.hp < t.maxHP * 0.5 &&
           Math.random() < 0.02
         )
           a = t.id === "boss" ? a + 50 : t.hp + (t.shield || 0);
-        this.damage(p, t, a, { elemental, proc, burnStacks });
-        if ((tipper || knock) && this.now - (t.knockAt ?? -10) > 1) {
+        const shieldBefore = t.shield || 0;
+        const dealt = this.damage(p, t, a, { elemental, proc, burnStacks });
+        const landed = dealt > 0 || (t.shield || 0) < shieldBefore;
+        if (tipper && landed) this.event("float", {
+          x: t.x, y: t.y - 24, text: "TIPPER", color: "#ffe29b",
+        });
+        if (landed && (tipper || knock) && this.now - (t.knockAt ?? -10) > 1) {
           t.knockAt = this.now;
           if (t.id === "boss") t.stagger = 0.45;
           else {
@@ -466,6 +482,9 @@ export class Game {
       }
     }
     this.event("swing", {
+      owner: p.id, weapon, shape: thrust ? "thrust" : "arc",
+      halfAngle, halfWidth, tipStart: thrust ? range * 0.75 : 0,
+      elemental, duration: weapon === "daggers" ? 180 : 320,
       x: p.x,
       y: p.y,
       aim: p.aim,
@@ -485,6 +504,10 @@ export class Game {
       perfect = false,
     } = {},
   ) {
+    this.event("shot", {
+      owner: p.id, weapon: p.loadout.weapon, x: p.x, y: p.y, aim: p.aim,
+      color: ELEMENT_COLORS[p.loadout.element], duration: 240,
+    });
     this.projectiles.push({
       id: randomUUID(),
       owner: p.id,
@@ -530,7 +553,7 @@ export class Game {
         p.flurry = 4;
         p.flurryCD = 0;
       }
-      if (w === "spear") this.melee(p, 20, 175, { tip: true, knock: 80 });
+      if (w === "spear") this.melee(p, 20, 155, { tip: true, knock: 80 });
       if (w === "scythe") this.melee(p, 24, 130);
       if (w === "bow") {
         const perfect = p.charge >= 0.85 && p.charge <= 0.95;
@@ -1045,6 +1068,7 @@ export class Game {
   }
   snapshot() {
     return {
+      weaponProfiles: W,
       code: this.code,
       phase: this.phase,
       next: this.next,

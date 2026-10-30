@@ -152,3 +152,11 @@ if someone leaves permanently, create a new room before starting.
 Run `npm test`. Automated tests use actual WebSocket clients against an ephemeral
 HTTP server. They are not a substitute for separate physical-device testing.
 See TESTING.md for evidence and outstanding submission checks.
+
+## Playtest update — build 0.2
+
+Player feedback identified unclear weapon reach and an overly forgiving spear. Spear basic reach is now 125 (was 145), special reach 155 (was 175), with a narrow 20-unit-wide thrust plus target-body collision tolerance. It keeps 11 base / 17 tip damage and 20 special / 26 special-tip damage. The outer quarter rewards spacing; targets behind or well to the side cannot be hit. Protected or dodging targets no longer receive melee knockback. Sword uses a 120-degree sweep, daggers a tighter 92-degree sweep, and scythe a wider 149-degree sweep. Other weapon damage/rates and stage rules are unchanged.
+
+Attack effects receive owner, weapon, shape, dimensions and duration from the server. They show distinct thrusts, slashes, sweeps, bow draw/release and staff casting, plus impact sparks and a walk cycle. The local player's subtle aim guide shows weapon reach; a gold spear segment marks the tip zone. Targets have body-radius tolerance beyond the drawn weapon shape. Controls and cooldowns sit in the right sidebar below play-by-play, with larger interface text. Narrow screens stack the sidebar below the arena.
+
+Validation: 24 automated tests pass, including spear geometry, tip damage, protection/knockback, distinct melee arcs, projectile animation metadata, and the existing four-client synchronization test. The user reports a successful human playtest of the previous build; the new balance still needs player feedback.
