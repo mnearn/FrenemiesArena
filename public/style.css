@@ -834,3 +834,53 @@ dd {
 #bossbar progress::-moz-progress-bar { background: #f47735; }
 #bossname { letter-spacing: 2px; color: #ffe5ac; }
 #loadout-panel, #result-panel { border: 2px solid #a38e5f; }
+
+/* Playtest update: larger type and controls beside the arena. */
+#game { max-width: 1800px; padding: 22px 3%; }
+.play-layout { grid-template-columns: minmax(0, 1fr) 310px; align-items: start; gap: 22px; }
+.play-layout aside { max-height: 82vh; overflow-y: auto; padding-right: 5px; scrollbar-color: #899669 #222e2c; }
+.arena-wrap { position: sticky; top: 16px; }
+.controls-title { font-size: 24px; margin: 16px 0 8px; color: #f6dda6; }
+aside .actionbar { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 0; }
+aside #your-health { width: 100%; padding: 8px 0; }
+aside #your-health > span { font-size: 12px; }
+aside .ability { min-height: 48px; padding: 10px 12px; }
+aside .ability span { font-size: 14px; }
+aside .ability kbd { font-size: 13px; min-width: 34px; text-align: center; }
+aside .ability b { position: static; margin-left: auto; font-size: 13px; }
+aside .controls-hint { display: block; width: 100%; font-size: 13px; line-height: 2.2; padding: 8px 0; }
+.controls-hint kbd { color: #f7e8c9; }
+.roster-head, .feed-head, .eyebrow { font-size: 12px; }
+.player-card { padding: 10px 12px; margin-bottom: 8px; }
+.player-card strong { font-size: 15px; }
+.player-card .details, .player-card .status { font-size: 12px; }
+.round-info, #feed, #feed p { font-size: 13px; }
+#feed { max-height: 110px; }
+#feed p { margin: 6px 0; }
+#selection-note, .loadout-info { font-size: 14px; }
+.select-grid label, #ready-note { font-size: 12px; }
+select { font-size: 14px; }
+#loadout-panel { max-height: 96%; overflow-y: auto; }
+#results-table { font-size: 14px; }
+th, .quiet, .mini, .entry label, .hero-foot, footer { font-size: 11px; }
+#bossbar { font-size: 13px; }
+dt { font-size: 16px; } dd, .muted { font-size: 14px; }
+@media (max-width: 1100px) and (min-width: 761px) {
+  .play-layout { grid-template-columns: minmax(0, 1fr) 270px; gap: 14px; }
+  #game { padding: 18px 2%; }
+  #loadout-panel { padding: 14px; width: 96%; }
+  .select-grid { grid-template-columns: 1fr; }
+  .select-grid label { display: grid; grid-template-columns: 75px 1fr; align-items: center; }
+  select { margin-top: 3px; padding: 7px; }
+}
+@media (max-width: 760px) {
+  .play-layout { grid-template-columns: 1fr; }
+  .arena-wrap { position: relative; top: auto; }
+  .play-layout aside { display: block; max-height: none; overflow: visible; }
+  #roster { grid-template-columns: repeat(2,1fr); }
+  .feed-head, #feed { display: block; }
+  aside .actionbar { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  aside #your-health, aside .controls-hint { grid-column: 1 / -1; }
+  .player-card strong { font-size: 14px; }
+  .player-card .details { font-size: 12px; }
+}

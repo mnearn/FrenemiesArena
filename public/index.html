@@ -146,10 +146,9 @@
           </div>
           <div id="roster"></div>
           <div class="round-info" id="round-info"></div>
-          <div class="feed-head">ARENA FEED</div>
+          <div class="feed-head">PLAY-BY-PLAY</div>
           <div id="feed" aria-live="polite"></div>
-        </aside>
-      </div>
+          <h3 class="controls-title">YOUR CONTROLS</h3>
       <div class="actionbar">
         <div id="your-health">
           <span>YOUR VITALS</span><b>100 / 100</b
@@ -166,8 +165,11 @@
         </div>
         <div class="ability"><kbd>R</kbd><span>Hold to revive</span></div>
         <div class="controls-hint">
-          WASD MOVE · MOUSE AIM<br />SHIFT GUARD · SPACE STANCE
+          <kbd>WASD / ↑↓←→</kbd> Move<br /><kbd>MOUSE</kbd> Aim<br /><kbd>SHIFT</kbd> Guard (defensive stance)<br /><kbd>SPACE</kbd> Sword stance
         </div>
+      </div>
+
+        </aside>
       </div>
       <div id="touch-controls">
         <button data-key="w">↑</button><button data-key="a">←</button
@@ -231,7 +233,7 @@
     <footer>
       <span>FRENEMIES ARENA</span
       ><span>KEEP YOUR FRIENDS CLOSE. YOUR SCORE CLOSER.</span
-      ><span>BUILD 0.1</span>
+      ><span>BUILD 0.2</span>
     </footer>
     <script src="/socket.io/socket.io.js"></script>
     <script type="module" src="client.js"></script>

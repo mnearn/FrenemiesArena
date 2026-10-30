@@ -27,13 +27,13 @@ const names = {
 };
 const details = {
   sword:
-    "12 damage / 1.5 attacks per second. Every third hit +6. Space switches to defensive stance; Shift guards.",
+    "Balanced sweep: 88 reach, 12 damage / 1.5 attacks per second. Every third hit +6. Space switches stance; Shift guards in defense.",
   daggers:
-    "7 damage / 2.2 attacks per second. Every fourth hit speeds you up. Q: four-hit Shadow Flurry.",
+    "Close-range slashes: 65 reach, 7 damage / 2.2 attacks per second. Every fourth hit speeds up attacks. Q: four-hit Shadow Flurry.",
   spear:
-    "11 damage / 1.4 attacks per second. Outer tip deals 17 and knocks back. Q: Piercing Thrust.",
+    "Precise thrust: 125 reach, 11 damage / 1.4 attacks per second. Gold outer quarter: 17 damage + knockback. Q: 155-reach Piercing Thrust.",
   scythe:
-    "16 damage / 1 attack per second. 2% execute chance below half HP; bosses take +50 instead. Q: Reaping Sweep (24).",
+    "Wide sweep: 110 reach, 16 damage / 1 attack per second. 2% execute chance below half HP; bosses take +50. Q: Reaping Sweep (24).",
   bow: "Quick 10 / charged 20 / perfect 30. Release at 85–95% charge. Consecutive hits build Eagle Eye.",
   staff:
     "Elemental projectiles. +10% elemental damage and 15% shorter element cooldowns. Q also casts your element.",
@@ -218,7 +218,7 @@ socket.on("state", (s) => {
     if (seen.has(e.id)) continue;
     seen.add(e.id);
     if (s.now - e.t > 2) continue;
-    if (["hit", "swing", "burst", "float", "beam"].includes(e.type)) {
+    if (["hit", "swing", "shot", "burst", "float", "beam"].includes(e.type)) {
       effects.push({ ...e, born: performance.now() });
       if (e.type === "hit") beep(120 + e.amount * 8);
     } else if (e.type === "stage") {
@@ -562,10 +562,17 @@ function playerArt(c, p, color, scale = 1) {
     c.restore(); return;
   }
   if (p.down) c.rotate(-Math.PI / 2);
+  const impact = effects.findLast(e => e.type === "hit" && e.target === p.id && performance.now() - e.born < 120);
+  if (impact) c.translate(Math.sin((performance.now() - impact.born) / 12) * 2, 0);
   const stride = p.moving && !p.down ? Math.round(Math.sin(performance.now() / 95) * 2) : 0;
   const palette = {o:'#202b30', a:color, h:'#e3e1b4', g:'#b38d48', b:'#f3d578',
     k:'#59443c', s:'#dba97b', e:'#fff0c4', d:'#3b4243'};
-  pixelSprite(c, heroSprite, palette, -18, -29 + stride);
+  if (impact) { palette.a = '#fff0d1'; palette.h = '#ffffff'; }
+  // Split moving boots from the torso for an actual alternating walk cycle.
+  pixelSprite(c, heroSprite.slice(0,20), palette, -18, -29 + stride);
+  const step = p.moving ? Math.round(Math.sin(performance.now() / 95) * 3) : 0;
+  pixelSprite(c, ['.dddd.','ddddd.','oooooo'], palette, -12, 11 + step);
+  pixelSprite(c, ['.dddd.','.ddddd','oooooo'], palette, 2, 11 - step);
   const w = p.loadout?.weapon || 'sword';
   // Distinct silhouettes and equipment for all six weapon classes.
   if (w === 'daggers' || w === 'staff' || w === 'bow') {
@@ -576,12 +583,24 @@ function playerArt(c, p, color, scale = 1) {
     rect(c, -3, -30 + stride, 5, 11, '#b38d48');
     rect(c, -10, -19 + stride, 21, 3, '#3c4342');
   }
-  c.save(); c.rotate(p.aim || 0);
+  const attack = effects.findLast(e => e.owner === p.id &&
+    (e.type === "shot" || (e.type === "swing" && !e.elemental)) &&
+    performance.now() - e.born < (e.duration || 320));
+  const progress = attack ? (performance.now() - attack.born) / (attack.duration || 320) : 0;
+  const thrust = attack?.shape === "thrust";
+  const attackAngle = attack && attack.type === "swing" && !thrust
+    ? -attack.halfAngle + progress * attack.halfAngle * 2 : 0;
+  c.save(); c.rotate((attack?.aim ?? p.aim ?? 0) + attackAngle);
+  if (thrust) c.translate(Math.sin(progress * Math.PI) * Math.max(0, attack.range - 80), 0);
+  if (attack?.type === "shot") c.translate(-Math.sin(progress * Math.PI) * 7, 0);
   const metal = '#dfe8db', edge = '#6e929b', gold = '#d1a654';
   if (w === 'bow') {
     pixelSprite(c, ['.gg.....','..gg....','...gg...','....gg..','.....g..','.....g..','....gg..','...gg...','..gg....','.gg.....'],
       {g:gold}, 17, -20, 4);
-    rect(c, 22, -16, 1, 33, '#f5e1ab'); rect(c, 18, -1, 29, 2, metal);
+    c.strokeStyle = p.charge >= 0.85 && p.charge <= 0.95 ? '#ffe895' : '#f5e1ab';
+    c.lineWidth = 2; c.beginPath(); c.moveTo(22,-16);
+    c.lineTo(22 - Math.min(1,p.charge || 0) * 14,0); c.lineTo(22,17); c.stroke();
+    rect(c, 18 - Math.min(1,p.charge || 0) * 14, -1, 29, 2, metal);
     rect(c, 43, -3, 5, 6, edge);
   } else if (w === 'staff') {
     rect(c, 12, -3, 41, 6, '#493d36'); rect(c, 12, -2, 42, 2, '#b69561');
@@ -641,6 +660,55 @@ function bossArt(c, b) {
   }
   c.restore();
 }
+// Server-supplied shapes keep the reach indicator and attack effects honest.
+function attackShape(c, e, color, alpha = 1) {
+  c.save(); c.translate(e.x, e.y); c.rotate(e.aim || 0);
+  c.globalAlpha *= alpha; c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 2;
+  c.beginPath();
+  if (e.shape === "thrust") {
+    c.rect(0, -e.halfWidth, e.range, e.halfWidth * 2);
+  } else {
+    const a = e.halfAngle || 1.05;
+    c.moveTo(0,0); c.arc(0,0,e.range,-a,a); c.closePath();
+  }
+  c.stroke(); c.globalAlpha *= 0.18; c.fill();
+  if (e.tipStart) {
+    c.globalAlpha = alpha * 0.65; c.fillStyle = '#ffdc78';
+    c.fillRect(e.tipStart,-e.halfWidth,e.range-e.tipStart,e.halfWidth*2);
+  }
+  c.restore();
+}
+function drawReachGuide(c,p) {
+  if (!p || p.dead || p.down || !['ffa','duel','raid'].includes(state.phase)) return;
+  const profile = state.weaponProfiles?.[p.loadout.weapon];
+  if (!profile) return;
+  const pos = positions[p.id] || p;
+  if (['bow','staff'].includes(p.loadout.weapon)) {
+    c.save(); c.strokeStyle='#fff2c066'; c.setLineDash([5,9]); c.beginPath();
+    c.moveTo(pos.x+Math.cos(aim)*35,pos.y+Math.sin(aim)*35);
+    c.lineTo(pos.x+Math.cos(aim)*180,pos.y+Math.sin(aim)*180); c.stroke(); c.restore();
+    return;
+  }
+  attackShape(c,{...profile,...pos,aim,shape:p.loadout.weapon==='spear'?'thrust':'arc',
+    tipStart:p.loadout.weapon==='spear'?profile.range*0.75:0},'#fff1c6',0.3);
+}
+function drawAttackEffect(c,e,now) {
+  const t = Math.min(1,(now-e.born)/(e.duration || 320));
+  if (t >= 1) return;
+  attackShape(c,e,e.color,0.8*(1-t));
+  c.save(); c.translate(e.x,e.y); c.rotate(e.aim);
+  c.globalAlpha = 1-t; c.strokeStyle='#fff4cf'; c.lineWidth = e.weapon==='scythe'?7:4;
+  if (e.shape==='thrust') {
+    const end = e.range * (0.65 + 0.35*Math.sin(t*Math.PI));
+    c.beginPath(); c.moveTo(18,0); c.lineTo(end,0); c.stroke();
+    pixelSprite(c,['g..','ggg','g..'],{g:'#ffe195'},end-5,-6,4);
+  } else {
+    const half = e.halfAngle || 1.05, head = -half + 2*half*t;
+    c.beginPath(); c.arc(0,0,e.range,Math.max(-half,head-0.8),head); c.stroke();
+    if(e.weapon==='daggers') {c.beginPath();c.arc(0,0,e.range*0.65,-head,-head+0.5);c.stroke();}
+  }
+  c.restore();
+}
 function draw() {
   const now = performance.now();
   if (!state || !me) {
@@ -691,6 +759,7 @@ function draw() {
     ctx.stroke();
   }
   if (state.boss) bossArt(ctx, state.boss);
+  drawReachGuide(ctx, me);
   for (const [i, p] of state.players.entries()) {
     let pos = positions[p.id] || { x: p.x, y: p.y };
     if (Math.hypot(pos.x - p.x, pos.y - p.y) > 150) pos = { x: p.x, y: p.y };
@@ -716,7 +785,7 @@ function draw() {
       ctx.stroke();
     }
     ctx.textAlign = "center";
-    ctx.font = "bold 12px monospace";
+    ctx.font = "bold 16px monospace";
     ctx.fillStyle = p.id === id ? "#f1f4d1" : colors[i];
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#352e29";
@@ -765,8 +834,17 @@ function draw() {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(Math.atan2(p.vy, p.vx));
-    rect(ctx, -8, -3, 20, 6, p.color);
-    rect(ctx, 7, -5, 7, 10, p.perfect ? "#fff3a0" : p.color);
+    if (p.kind === "arrow") {
+      rect(ctx, -22, -2, 30, 4, '#e5c78f');
+      pixelSprite(ctx,['..m..','.mmm.','mmmmm'],{m:p.perfect?'#fff3a0':'#dce8e8'},6,-5,2);
+      rect(ctx,-22,-5,7,3,'#f4efda'); rect(ctx,-22,2,7,3,'#f4efda');
+    } else {
+      const pulse = Math.round(Math.sin(now/70) * 2);
+      pixelSprite(ctx, ['..ee..','.ehhe.','ehhhhe','.ehhe.','..ee..'],
+        {e:p.color,h:'#fff3d2'},-10,-10,4);
+      rect(ctx,-20,-3,8,6,p.color); rect(ctx,-30-pulse,-1,6,3,p.color);
+    }
+    ctx.globalAlpha = 0.35; rect(ctx,-40,-1,22,2,p.color); ctx.globalAlpha = 1;
     ctx.restore();
   }
   effects = effects.filter((e) => now - e.born < 650);
@@ -782,10 +860,16 @@ function draw() {
         e.type === "float" ? "bold 15px monospace" : "bold 21px monospace";
       ctx.fillText(e.text || e.amount, e.x, e.y - 28 - age * 45);
     }
-    if (e.type === "swing") {
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.range * 0.8, e.aim - 0.8, e.aim + 0.8);
-      ctx.stroke();
+    if (e.type === "swing") drawAttackEffect(ctx, e, now);
+    if (e.type === "shot") {
+      ctx.beginPath(); ctx.arc(e.x + Math.cos(e.aim) * 35,
+        e.y + Math.sin(e.aim) * 35, 5 + age * 16, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (e.type === "hit" && age < 0.5) {
+      for (let i=0;i<6;i++) {
+        const a = i * Math.PI / 3, r = 8 + age * 42;
+        rect(ctx,e.x + Math.cos(a)*r,e.y + Math.sin(a)*r,4,4,e.color);
+      }
     }
     if (e.type === "burst") {
       ctx.beginPath();
