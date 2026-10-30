@@ -268,3 +268,59 @@ test("round reset clears unfinished flurry and counter", () => {
   g.reset(a);
   assert.equal(a.flurry,0); assert.equal(a.counter,0); assert.equal(a.contender,true);
 });
+
+test('spear rewards its tip but misses a sidestep and targets beyond its reach', () => {
+  const g = arena(), [a,b,c,d] = g.players;
+  a.loadout.weapon = 'spear'; a.aim = 0;
+  Object.assign(a,{x:300,y:300});
+  Object.assign(b,{x:410,y:300});
+  Object.assign(c,{x:400,y:345});
+  Object.assign(d,{x:445,y:300});
+  g.attack(a);
+  assert.equal(b.hp,83, 'tip hit still deals 17');
+  assert.equal(b.x,470, 'tip knockback remains');
+  assert.equal(c.hp,100, 'sidestepping the narrow thrust avoids damage');
+  assert.equal(d.hp,100, 'old long range no longer hits');
+  const swing = g.events.findLast(e=>e.type==='swing');
+  assert.equal(swing.owner,a.id);
+  assert.equal(swing.shape,'thrust');
+  assert.equal(swing.range,125);
+});
+test('spear inner hit deals 11 and cannot hit behind the wielder', () => {
+  const g=arena(), [a,b,c] = g.players;
+  a.loadout.weapon='spear'; a.aim=0;
+  Object.assign(a,{x:300,y:300}); Object.assign(b,{x:370,y:300});
+  Object.assign(c,{x:280,y:300}); g.attack(a);
+  assert.equal(b.hp,89); assert.equal(b.x,370); assert.equal(c.hp,100);
+});
+test('spear special has bounded reach and protection prevents knockback', () => {
+  const g=arena(), [a,b,c,d]=g.players;
+  a.loadout.weapon='spear';a.aim=0;
+  Object.assign(a,{x:300,y:300});Object.assign(b,{x:445,y:300});
+  Object.assign(c,{x:475,y:300});Object.assign(d,{x:435,y:300,protection:2});
+  g.attack(a,true);
+  assert.equal(b.hp,74);assert.equal(c.hp,100);assert.equal(d.hp,100);
+  assert.equal(d.x,435);
+  assert.equal(g.events.findLast(e=>e.type==='swing').range,155);
+});
+test('melee weapons have different arcs; elemental attacks retain their own cone', () => {
+  for(const [weapon, expectedHit] of [['daggers',false],['sword',true],['scythe',true]]) {
+    const g=arena(),[a,b]=g.players;
+    Object.assign(a,{x:300,y:300,aim:0});a.loadout.weapon=weapon;
+    Object.assign(b,{x:300+50*Math.cos(0.95),y:300+50*Math.sin(0.95)});
+    g.attack(a);assert.equal(b.hp<100,expectedHit,weapon);
+  }
+  const g=arena(),[a,b]=g.players;
+  Object.assign(a,{x:300,y:300,aim:0});a.loadout.weapon='spear';a.loadout.element='fire';
+  Object.assign(b,{x:380,y:350});g.element(a);
+  assert.equal(b.hp,88);assert.equal(b.burn,2);
+  assert.equal(g.events.findLast(e=>e.type==='swing').shape,'arc');
+});
+test('ranged attacks broadcast shooter animation metadata without changing projectile damage', () => {
+  const g=arena(),[a]=g.players;
+  a.loadout.weapon='bow';a.charge=0.9;g.attack(a);
+  const shot=g.events.findLast(e=>e.type==='shot');
+  assert.equal(shot.owner,a.id);assert.equal(shot.weapon,'bow');
+  assert.equal(g.projectiles[0].damage,30);
+  assert.equal(g.snapshot().weaponProfiles.spear.range,125);
+});
