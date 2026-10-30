@@ -701,6 +701,8 @@ export class Game {
         if (p.bleed <= 0) {
           p.dead = true;
           p.down = false;
+          p.input = {};
+          continue;
         }
       } else if (this.phase === "raid") p.aliveTime += dt;
       const input =
@@ -806,6 +808,7 @@ export class Game {
             continue;
           s.hit.push(t.id);
           this.damage(owner, t, s.damage, { elemental: s.elemental });
+          if (this.phase === "results") break;
           if (s.kind === "arrow") owner.eagle = Math.min(4, owner.eagle + 1);
           if (s.kind === "electricity") {
             const extra = this.enemies(owner).find(
@@ -820,8 +823,10 @@ export class Game {
           }
         }
       }
+      if (this.phase === "results") break;
       if (s.life <= 0 && s.kind === "arrow" && !s.hit.length) owner.eagle = 0;
     }
+    if (this.phase === "results") return;
     this.projectiles = this.projectiles.filter((s) => s.life > 0);
     if (this.phase === "raid") this.updateBoss(dt);
     if (this.sudden) {
